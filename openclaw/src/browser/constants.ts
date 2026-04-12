@@ -1,0 +1,3 @@
+export const DEFAULT_BROWSER_EVALUATE_ENABLED = false;
+export const DEFAULT_OPENCLAW_BROWSER_COLOR = "amber";
+export const DEFAULT_OPENCLAW_BROWSER_PROFILE_NAME = "default";

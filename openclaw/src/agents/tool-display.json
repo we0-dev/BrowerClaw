@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "fallback": {
+    "emoji": "🧩",
+    "detailKeys": ["command", "path", "url", "name", "query", "pattern"]
+  },
+  "tools": {
+    "exec": {
+      "emoji": "🛠️",
+      "title": "Exec",
+      "detailKeys": ["command"]
+    },
+    "process": {
+      "emoji": "🧰",
+      "title": "Process",
+      "detailKeys": ["sessionId"]
+    },
+    "read": {
+      "emoji": "📖",
+      "title": "Read",
+      "detailKeys": ["path"]
+    },
+    "write": {
+      "emoji": "✍️",
+      "title": "Write",
+      "detailKeys": ["path"]
+    },
+    "edit": {
+      "emoji": "📝",
+      "title": "Edit",
+      "detailKeys": ["path"]
+    },
+    "apply_patch": {
+      "emoji": "🩹",
+      "title": "Apply Patch",
+      "detailKeys": []
+    },
+    "grep": {
+      "emoji": "🔍",
+      "title": "Grep",
+      "detailKeys": ["pattern", "path"]
+    },
+    "find": {
+      "emoji": "📂",
+      "title": "Find",
+      "detailKeys": ["pattern", "path"]
+    },
+    "ls": {
+      "emoji": "📁",
+      "title": "List",
+      "detailKeys": ["path"]
+    },
+    "memory_search": {
+      "emoji": "🧠",
+      "title": "Memory Search",
+      "detailKeys": ["query"]
+    },
+    "memory_get": {
+      "emoji": "📓",
+      "title": "Memory Get",
+      "detailKeys": ["path", "from", "lines"]
+    },
+    "web_search": {
+      "emoji": "🔎",
+      "title": "Web Search",
+      "detailKeys": ["query", "count"]
+    },
+    "web_fetch": {
+      "emoji": "📄",
+      "title": "Web Fetch",
+      "detailKeys": ["url", "extractMode", "maxChars"]
+    },
+    "image": {
+      "emoji": "🖼️",
+      "title": "Image",
+      "detailKeys": ["path", "url", "prompt"]
+    }
+  }
+}
