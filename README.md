@@ -2,63 +2,104 @@
 
 **Other languages:** [简体中文](README.zh-CN.md)
 
-**weclaw** ships a **browser-hosted** experience around **OpenClaw Mini** (a trimmed tree from the [OpenClaw](https://github.com/openclaw/openclaw) project): agent loop, skills, memory, and a small built-in toolset live under `openclaw/`; the UI shell is `weRunOpenClaw/` (Vite + React). The “terminal” runs in **weNode**, a browser-side runtime that needs **SharedArrayBuffer**, so the app relies on **cross-origin isolation** headers (configured in Vite and in the Nginx image).
+**weclaw** is a browser-hosted runtime for **Mini OpenClaw**. It uses `weRunOpenClaw/` as the web UI shell and runs the agent inside `weNode`, a browser-side terminal runtime centered on **Node.js**, with Python support mainly kept for running script files bundled inside some skills.
 
-### How this differs from “full” upstream OpenClaw
+Instead of running the agent against your host machine by default, **weclaw treats the browser as the sandbox**. The workspace, terminal, and preview all live inside the browser runtime, while **OPFS** is used for local persistence so task state, conversations, config, and workspace files can stay inside the current browser environment.
 
-What you see in public docs and blogs for **OpenClaw** (for example [docs.openclaw.ai](https://docs.openclaw.ai/) and gateway-focused write-ups) describes the **full product**: a long-lived **Gateway** process (control plane, WebSocket, HTTP APIs, optional **messaging channels** such as WhatsApp / Telegram / Discord, session routing, queueing, and often a **self-hosted** deployment on your machine or server).
+> `openclaw/` is the Mini OpenClaw runtime slice kept in this repo. `weRunOpenClaw/weNode` is integrated from packaged browser runtime artifacts. This README only describes that at the product level and does not expand on the packaged source details.
 
-**This repository is not that full stack.** The `openclaw/` tree here is **OpenClaw Mini**, which intentionally **drops** gateway-style services, messaging channels, macOS/iOS/Android shells, extensions/plugins, and several large product surfaces—see `openclaw/README.md` for the exact scope. **weclaw** adds a **static web + in-browser runtime** layer (`weRunOpenClaw` + weNode) so you can drive the mini agent from a page instead of (or in addition to) a local CLI on the host OS.
+## Why weclaw
 
-| Dimension | Upstream “full” OpenClaw (typical) | weclaw (this repo) |
-|-----------|-------------------------------------|----------------------|
-| Topology | Gateway daemon, multi-client control plane | No gateway in the Mini slice; browser UI + embedded runtime |
-| Channels | Many chat / automation integrations | **None** in Mini (no inbound channel surface) |
-| Docs fit | Gateway config, channels, sessions | Mini README + `weRunOpenClaw/weNode/weNode-usage.md` |
-| Deployment | Often Node service + secrets on host | Static build + Docker/Nginx **or** `vite dev` |
+- **Run Mini OpenClaw in the browser** without installing a full host-side OpenClaw stack
+- **Browser-native isolation** with a bounded workspace instead of default host filesystem access
+- **Node.js-first terminal runtime with Python skill-script compatibility**
+- **OPFS persistence** for tasks, conversations, virtual config, skill state, and workspace files
+- **Task-based workspaces** with sync between VFS and OPFS during task switching
+- **Built-in preview flow** for services started inside weNode
+- **Static deployment friendly** with a frontend build plus browser runtime
 
-If something is not in `openclaw/README.md`’s “What remains” list, assume **it is out of scope** for this tree unless you merge upstream changes yourself.
+## Features
 
-### Security advantages
+- **Browser agent workspace** with chat, terminal, file view, artifacts, and preview in one page
+- **Mini OpenClaw integration** that keeps local agent execution, skills, memory, and a small toolset
+- **Skills management** for virtual OpenClaw skills and `SKILL.md`
+- **Config editor** for the virtual `openclaw.json`
+- **Persistent multi-task sessions** backed by OPFS
+- **Preview port bridging** for dev servers and generated app output inside weNode
 
-- **Smaller attack surface than the full OpenClaw stack.** Mini intentionally drops the Gateway, messaging channels, and many integrations—large classes of **inbound control-plane and chat-channel exposure** common in the full product **do not exist here**, so your threat model is easier to explain and defend.
-- **Transparent client boundary.** Only `VITE_*` variables are shipped to the browser, so you always know **exactly what is public**. When you need credentials off the client, you can add a **server-side proxy** with a clear, deliberate step instead of accidental leakage from server-only config.
-- **Standards-based hardening for weNode.** **COOP / COEP** cross-origin isolation is how modern browsers safely enable **SharedArrayBuffer**; weclaw wires this through `vite.config.ts` and the Nginx snippet in `Dockerfile`, aligning with a well-documented platform security pattern.
-- **Bounded agent execution.** The agent’s tools run **inside the sandbox you give it** (e.g. weNode VFS), so impact is **scoped** rather than granting blanket host access by default—good for predictable operations and reviews.
-- **Static-friendly deployment.** Serving a **built SPA + Nginx** avoids a long-lived gateway daemon on the wire for the UI slice; combine with **pinned lockfiles**, **HTTPS** to model hosts you trust, and routine audits for a simple, reviewable supply-chain story.
+## How it differs from full OpenClaw
 
-Operational hygiene still matters: do not commit production secrets to git; rotate any key that has ever appeared in CI logs or chat.
+Public OpenClaw docs usually describe the full product with Gateway, control-plane features, messaging channels, and more surrounding surfaces. **This repository is not that full stack.**
 
-### Browser sandbox vs OpenClaw on the host (why the sandbox helps)
+The `openclaw/` tree here is an intentionally reduced **Mini** slice. `weRunOpenClaw/` adds the browser delivery layer so the agent can be driven from a web page instead of a host-native deployment.
 
-- **Host filesystem is not the default workspace.** weNode tools operate against a **virtual in-browser workspace** (see `weRunOpenClaw/weNode/weNode-usage.md`), not your entire home folder or disk. Compared with running OpenClaw **as your OS user** on a real path, accidental or over-eager prompts are **much less likely** to touch unrelated host projects, SSH keys outside the workspace, or system config—blast radius stays **inside the sandbox you ship**.
-- **Different process boundary.** The agent runs **inside a tab** under the browser’s process and security model, not as an extra long-lived **host daemon** with ambient login/session authority. Together with **COOP / COEP**, that is often a **smaller, clearer** trust shell than “full shell on my machine.”
-- **Shareable without cloning a machine.** A **URL + static build** reproduces the same UI and weNode slice; collaborators do not need to install and harden a **full host OpenClaw footprint** just to try the mini agent.
-- **Fewer host-native moving parts.** You avoid scaling the “always-on service + secrets beside personal files” pattern for this slice; delivery is closer to **immutable artifacts** (build output, container). The trade-off is honest: when you **must** automate the real host (installers, arbitrary paths, hardware), **native OpenClaw / CLI on the machine** remains the right tool—weclaw optimizes for **bounded, web-delivered** automation instead.
 
-### Repository layout
+| Dimension        | Full OpenClaw (typical)                                   | weclaw (this repo)                            |
+| ---------------- | --------------------------------------------------------- | --------------------------------------------- |
+| Deployment       | Host or server services, often with gateway-style runtime | Static web app + in-browser runtime           |
+| Execution        | Node services on the host                                 | weNode terminal inside the browser            |
+| Filesystem scope | Closer to real host access                                | Bounded browser-side workspace by default     |
+| Persistence      | Host files and long-lived services                        | Browser OPFS                                  |
+| Goal             | Full product surface                                      | Lightweight, web-delivered Mini agent runtime |
 
-| Path | Role |
-|------|------|
-| `openclaw/` | OpenClaw Mini — Node 22+, `pnpm build` → `dist/` |
-| `weRunOpenClaw/` | Frontend + weNode; dev server default port **5173** |
-| `Dockerfile` | Builds both; serves `weRunOpenClaw/dist` via Nginx |
+## Security model
 
-### Prerequisites
+- **The browser is the first sandbox**: the agent works against the weNode virtual workspace instead of your real host directories
+- **Reduced attack surface**: Mini OpenClaw removes gateway and messaging-channel surfaces
+- **Clear client boundary**: only `VITE_*` variables are exposed to the frontend bundle
+- **Web delivery with bounded risk**: static hosting plus browser runtime is easier to reason about than a larger host-native stack
 
-- **Node.js**: **≥ 22.12** for `openclaw`; align with Node 22 for Docker parity  
-- **pnpm**: `pnpm@10.x` — enable with `corepack enable`
+## Repository layout
 
-### Run locally
+
+| Path                    | Role                                                                           |
+| ----------------------- | ------------------------------------------------------------------------------ |
+| `openclaw/`             | Mini OpenClaw runtime with agent, skills, memory, and minimal tools            |
+| `weRunOpenClaw/`        | Browser UI and weNode integration layer                                        |
+| `weRunOpenClaw/weNode/` | Browser Node-first runtime assets plus Python skill-script compatibility notes |
+| `Dockerfile`            | Builds the runtime and serves the app with Nginx                               |
+
+## Requirements
+
+- **Node.js**: `22+` recommended
+- **pnpm**: `10.x` recommended
+- **Browser support**: `Web Workers` and `SharedArrayBuffer`
+- **Headers**:
+  - `Cross-Origin-Opener-Policy: same-origin`
+  - `Cross-Origin-Embedder-Policy: credentialless`
+
+## Quick start
+
+### Local development
+
+Build `openclaw` first because `weRunOpenClaw` reads the built files from `openclaw/dist`.
 
 ```bash
-cd weRunOpenClaw
+cd openclaw
 corepack enable
+pnpm install
+pnpm build
+
+cd ../weRunOpenClaw
 pnpm install
 pnpm dev
 ```
 
-Open **http://localhost:5173** (`strictPort: true` — free the port or edit `vite.config.ts`).
+Open `http://localhost:5173`.
+
+### Using bun
+
+```bash
+cd openclaw
+bun install
+bun run build
+
+cd ../weRunOpenClaw
+bun install
+bun run dev
+```
+
+### Preview the production build
 
 ```bash
 cd weRunOpenClaw
@@ -66,69 +107,67 @@ pnpm build
 pnpm preview
 ```
 
-### Build OpenClaw core (optional)
+## Configuration
 
-```bash
-cd openclaw
-corepack enable
-pnpm install
-pnpm build
-```
+Use `.env`, `.env.local`, or `.env.production` inside `weRunOpenClaw/`. Only variables prefixed with `VITE_` are exposed to the frontend.
 
-CLI usage: `openclaw/README.md`.
-
-### Configuration (`VITE_*`)
-
-Configure under **`weRunOpenClaw/`** using **`.env`**, **`.env.local`**, or **`.env.production`** (do not commit real secrets). Vite only exposes variables that start with `VITE_`.
-
-**Example — `weRunOpenClaw/.env.local`:**
+Example:
 
 ```env
-# OpenAI-compatible chat/completions base URL (no trailing slash issues: use /v1 as your provider expects)
 VITE_OPENCLAW_GEMINI_BASE_URL=https://your-model-host.example.com/v1
-
-# Client-visible by Vite design—use a server proxy if the key must stay off-device
 VITE_OPENCLAW_GEMINI_API_KEY=sk-your-key-here
-
-# Optional metadata written into the generated OpenClaw config JSON
 VITE_OPENCLAW_LAST_TOUCHED_AT=2026-04-12T00:00:00.000Z
 VITE_OPENCLAW_LAST_TOUCHED_VERSION=2026.1.0
 ```
 
-Then from `weRunOpenClaw/` run `pnpm dev` or `pnpm build` so Vite picks up the file.
+Meaning:
 
-**Example — Docker image with build-time args** (same variable names as in `Dockerfile`):
+- `VITE_OPENCLAW_GEMINI_BASE_URL`: model API base URL
+- `VITE_OPENCLAW_GEMINI_API_KEY`: model API key
+- `VITE_OPENCLAW_LAST_TOUCHED_AT`: timestamp stored in the virtual OpenClaw config
+- `VITE_OPENCLAW_LAST_TOUCHED_VERSION`: version stored in the virtual OpenClaw config
 
-```bash
-docker build -t weclaw \
-  --build-arg VITE_OPENCLAW_GEMINI_BASE_URL=https://your-model-host.example.com/v1 \
-  --build-arg VITE_OPENCLAW_GEMINI_API_KEY=sk-your-key-here \
-  --build-arg VITE_OPENCLAW_LAST_TOUCHED_AT=2026-04-12T00:00:00.000Z \
-  --build-arg VITE_OPENCLAW_LAST_TOUCHED_VERSION=2026.1.0 \
-  .
-```
+If these variables are missing, the app falls back to the default config generation in `weRunOpenClaw/src/ui/Terminal/weNodeBootstrap.ts`.
 
-Variable meanings:
+Recommendation:
 
-- `VITE_OPENCLAW_GEMINI_BASE_URL` — OpenAI-compatible API base URL  
-- `VITE_OPENCLAW_GEMINI_API_KEY` — shipped in the client bundle per Vite rules; use a **server-side proxy** if the key must stay off the client (see **Transparent client boundary** above)  
-- `VITE_OPENCLAW_LAST_TOUCHED_AT`, `VITE_OPENCLAW_LAST_TOUCHED_VERSION` — virtual config metadata  
+- The virtual `openclaw.json` works best with an **OpenAI-compatible gateway such as NewAPI**
+- In this project, model requests are usually sent directly from the browser, and NewAPI-style gateways tend to be more reliable for browser-direct traffic and compatibility
+- Platforms such as **Volcengine** may be blocked or behave inconsistently in browser-direct scenarios due to risk controls, auth expectations, CORS policy, or request-shape restrictions
+- If you need to use Volcengine or a similar provider, it is safer to add your own stable relay or same-origin proxy in front of it instead of calling the raw endpoint directly from the browser
 
-**Where values are read:** at build/dev time Vite injects `import.meta.env`. If variables are unset, the bundle falls back to defaults in `weRunOpenClaw/src/ui/Terminal/weNodeBootstrap.ts` (`getDefaultOpenclawConfigJson`)—prefer `.env.local` / CI secrets instead of relying on fallbacks.
-
-**API key endpoint and CORS:** requests to `VITE_OPENCLAW_GEMINI_BASE_URL` are made **from the browser**. The host serving that URL must **allow your app’s origin** via **CORS** (`Access-Control-Allow-Origin` and related headers), or you must put a **same-origin reverse proxy** in front of the model API so calls are no longer cross-origin. This is **not** the same as **cross-origin isolation** (COOP/COEP) on weclaw itself—those headers stay enabled for weNode; do **not** remove them to “fix” model CORS.
-
-### Docker
+## Docker
 
 ```bash
 docker build -t weclaw .
 docker run --rm -p 8080:80 weclaw
 ```
 
-Browse **http://localhost:8080**.
+Browse to `http://localhost:8080`.
 
-### Further reading
+## FAQ
 
-- weNode + isolation: `weRunOpenClaw/weNode/weNode-usage.md`  
-- Mini scope: `openclaw/README.md`  
-- Upstream docs (full product): [https://docs.openclaw.ai/](https://docs.openclaw.ai/)
+<details>
+<summary><strong>What is stored in OPFS?</strong></summary>
+
+This project mainly persists task records, conversations, virtual OpenClaw config, skill preferences, and task workspace files into the browser's local OPFS storage.
+
+</details>
+
+<details>
+<summary><strong>Is this the full OpenClaw product?</strong></summary>
+
+No. This repo packages a reduced Mini OpenClaw runtime with a browser-hosted UI layer focused on bounded, web-delivered agent execution.
+
+</details>
+
+<details>
+<summary><strong>Why is a NewAPI-style gateway recommended by default?</strong></summary>
+
+Because the model endpoint in the virtual `openclaw.json` is typically accessed directly by the browser. For that delivery model, OpenAI-compatible gateways such as NewAPI are usually easier to make work reliably, while providers like Volcengine may reject or restrict browser-side requests due to platform controls, auth flow mismatch, or CORS behavior.
+
+</details>
+
+## Further reading
+
+- `openclaw/README.md`

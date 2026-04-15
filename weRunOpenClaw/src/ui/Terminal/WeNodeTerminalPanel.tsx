@@ -263,19 +263,20 @@ export function WeNodeTerminalPanel({
       {bootState !== "ready" && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center">
           <div className="absolute inset-0 we-terminal-loading backdrop-blur-[2px]" />
-          <div className="relative px-12 py-10 rounded-[2.5rem] bg-white shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] border border-zinc-200/50 transition-all duration-500">
-            <div className="flex flex-col items-center gap-6 text-center">
+          <div className="relative w-[min(720px,88vw)] max-h-[85vh] overflow-hidden rounded-[2.5rem] bg-white shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] border border-zinc-200/50 transition-all duration-500">
+            <div className="max-h-[85vh] overflow-y-auto px-8 py-8 sm:px-12 sm:py-10">
+              <div className="flex flex-col items-center gap-6 text-center">
               <div className="relative">
                 <div className="we-terminal-spinner" />
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span className="text-xl">🦞</span>
                 </div>
               </div>
-              <div>
+              <div className="w-full">
                 <div className="text-xl font-bold text-zinc-900 tracking-tight">
                   {bootState === "error" ? t("terminalBootErrorTitle") : t("terminalBootingTitle")}
                 </div>
-                <div className="text-[14px] text-zinc-500 mt-2 max-w-[320px] leading-relaxed font-medium">
+                <div className="mx-auto mt-2 max-w-[320px] text-[14px] leading-relaxed font-medium text-zinc-500">
                   {bootState === "error"
                     ? errorText || t("terminalBootErrorBody")
                     : bootDetail === "Installing dependencies (npm install)..."
@@ -283,11 +284,11 @@ export function WeNodeTerminalPanel({
                     : t("terminalBootInitBody")}
                 </div>
                 {bootState === "error" && errorText ? (
-                  <div className="mt-4 p-3 rounded-xl bg-red-50 text-[11px] leading-relaxed text-red-600 max-w-[320px] font-mono break-all border border-red-100">
+                  <div className="mx-auto mt-4 max-h-[22vh] max-w-[520px] overflow-y-auto rounded-xl border border-red-100 bg-red-50 p-3 text-left font-mono text-[11px] leading-relaxed text-red-600 break-all">
                     {errorText}
                   </div>
                 ) : null}
-                <div className="mt-4 w-[520px] max-w-[80vw] text-left">
+                <div className="mx-auto mt-4 w-full max-w-[520px] text-left">
                   <div className="text-[10px] text-zinc-400 mb-1 font-semibold">
                     {t("terminalLogMirror")}
                   </div>
@@ -296,6 +297,7 @@ export function WeNodeTerminalPanel({
                   </pre>
                 </div>
               </div>
+            </div>
             </div>
           </div>
         </div>

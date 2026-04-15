@@ -22,6 +22,8 @@ const zh = {
   rightPanelMoreAria: "更多",
   chatInputPlaceholder: "输入消息…",
   chatSend: "发送",
+  chatSendUnavailable: "聊天服务启动中，暂时不能发送。",
+  chatSendBusy: "上一条消息仍在处理中，请稍候。",
   chatFrontendPreviewMode: "前端预览模式",
   chatFrontendPreviewTitle: "控制是否注入前端预览工作流提示词",
   aiGenerating: "AI正在生成中...",
