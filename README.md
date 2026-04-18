@@ -1,173 +1,225 @@
-# weclaw
+# BrowerClaw
 
-**Other languages:** [简体中文](README.zh-CN.md)
+中文 | [English](README_EN.md)
 
-**weclaw** is a browser-hosted runtime for **Mini OpenClaw**. It uses `weRunOpenClaw/` as the web UI shell and runs the agent inside `weNode`, a browser-side terminal runtime centered on **Node.js**, with Python support mainly kept for running script files bundled inside some skills.
+`BrowerClaw` 是一个把 `openclaw` 运行时搬进浏览器的演示仓库，方便开发者在前端页面里直接启动一个“浏览器内 OpenClaw 服务”，用于调试 UI、验证技能装载链路，以及观察 browser runtime 的启动过程。
 
-Instead of running the agent against your host machine by default, **weclaw treats the browser as the sandbox**. The workspace, terminal, and preview all live inside the browser runtime, while **OPFS** is used for local persistence so task state, conversations, config, and workspace files can stay inside the current browser environment.
+它由两个子项目组成：
 
-> `openclaw/` is the Mini OpenClaw runtime slice kept in this repo. `weRunOpenClaw/weNode` is integrated from packaged browser runtime artifacts. This README only describes that at the product level and does not expand on the packaged source details.
+- `openclaw/`：裁剪后的本地优先 agent runtime，提供 `agent`、`chat`、`serve`、`skills` 等核心能力。
+- `weRunOpenClaw/`：React + Vite 前端，负责在浏览器中启动 `weNode`，并把 `openclaw` 构建产物装载到虚拟文件系统中运行。
 
-## Why weclaw
+## 给开发者的最快上手路径
 
-- **Run Mini OpenClaw in the browser** without installing a full host-side OpenClaw stack
-- **Browser-native isolation** with a bounded workspace instead of default host filesystem access
-- **Node.js-first terminal runtime with Python skill-script compatibility**
-- **OPFS persistence** for tasks, conversations, virtual config, skill state, and workspace files
-- **Task-based workspaces** with sync between VFS and OPFS during task switching
-- **Built-in preview flow** for services started inside weNode
-- **Static deployment friendly** with a frontend build plus browser runtime
+### 1. 环境要求
 
-## Features
+- Node.js `>=22.12.0`
+- `pnpm >=10`
+- 支持 `Web Workers` 与 `SharedArrayBuffer` 的现代浏览器
 
-- **Browser agent workspace** with chat, terminal, file view, artifacts, and preview in one page
-- **Mini OpenClaw integration** that keeps local agent execution, skills, memory, and a small toolset
-- **Skills management** for virtual OpenClaw skills and `SKILL.md`
-- **Config editor** for the virtual `openclaw.json`
-- **Persistent multi-task sessions** backed by OPFS
-- **Preview port bridging** for dev servers and generated app output inside weNode
+虽然 `weRunOpenClaw` 自身声明 `Node >=18.18.0`，但由于整个开发流程依赖 `openclaw` 的构建产物，建议统一使用 **Node 22**。
 
-## How it differs from full OpenClaw
-
-Public OpenClaw docs usually describe the full product with Gateway, control-plane features, messaging channels, and more surrounding surfaces. **This repository is not that full stack.**
-
-The `openclaw/` tree here is an intentionally reduced **Mini** slice. `weRunOpenClaw/` adds the browser delivery layer so the agent can be driven from a web page instead of a host-native deployment.
-
-
-| Dimension        | Full OpenClaw (typical)                                   | weclaw (this repo)                            |
-| ---------------- | --------------------------------------------------------- | --------------------------------------------- |
-| Deployment       | Host or server services, often with gateway-style runtime | Static web app + in-browser runtime           |
-| Execution        | Node services on the host                                 | weNode terminal inside the browser            |
-| Filesystem scope | Closer to real host access                                | Bounded browser-side workspace by default     |
-| Persistence      | Host files and long-lived services                        | Browser OPFS                                  |
-| Goal             | Full product surface                                      | Lightweight, web-delivered Mini agent runtime |
-
-## Security model
-
-- **The browser is the first sandbox**: the agent works against the weNode virtual workspace instead of your real host directories
-- **Reduced attack surface**: Mini OpenClaw removes gateway and messaging-channel surfaces
-- **Clear client boundary**: only `VITE_*` variables are exposed to the frontend bundle
-- **Web delivery with bounded risk**: static hosting plus browser runtime is easier to reason about than a larger host-native stack
-
-## Repository layout
-
-
-| Path                    | Role                                                                           |
-| ----------------------- | ------------------------------------------------------------------------------ |
-| `openclaw/`             | Mini OpenClaw runtime with agent, skills, memory, and minimal tools            |
-| `weRunOpenClaw/`        | Browser UI and weNode integration layer                                        |
-| `weRunOpenClaw/weNode/` | Browser Node-first runtime assets plus Python skill-script compatibility notes |
-| `Dockerfile`            | Builds the runtime and serves the app with Nginx                               |
-
-## Requirements
-
-- **Node.js**: `22+` recommended
-- **pnpm**: `10.x` recommended
-- **Browser support**: `Web Workers` and `SharedArrayBuffer`
-- **Headers**:
-  - `Cross-Origin-Opener-Policy: same-origin`
-  - `Cross-Origin-Embedder-Policy: credentialless`
-
-## Quick start
-
-### Local development
-
-Build `openclaw` first because `weRunOpenClaw` reads the built files from `openclaw/dist`.
+### 2. 安装依赖
 
 ```bash
 cd openclaw
-corepack enable
 pnpm install
-pnpm build
 
 cd ../weRunOpenClaw
 pnpm install
+```
+
+### 3. 先构建 `openclaw`
+
+```bash
+cd ../openclaw
+pnpm build
+```
+
+这一阶段会生成 `openclaw/dist/`。如果没有这个目录，前端虽然能启动，但浏览器里的虚拟运行时没有可执行的 OpenClaw 入口。
+
+### 4. 配置前端环境变量
+
+```bash
+cd ../weRunOpenClaw
+cp .env.example .env.local
+```
+
+至少确认这些变量可用：
+
+- `VITE_OPENCLAW_GEMINI_BASE_URL`
+- `VITE_OPENCLAW_GEMINI_API_KEY`
+- `VITE_OPENCLAW_LAST_TOUCHED_AT`
+- `VITE_OPENCLAW_LAST_TOUCHED_VERSION`
+
+这些值会被写入浏览器内虚拟的 `~/.openclaw/openclaw.json`。
+
+### 5. 启动前端
+
+```bash
 pnpm dev
 ```
 
-Open `http://localhost:5173`.
+默认访问：
 
-### Using bun
+- `http://localhost:5173`
 
-```bash
-cd openclaw
-bun install
-bun run build
+首次打开页面时，前端会在浏览器内部完成运行时引导、依赖安装和服务启动，所以首屏等待时间通常明显长于普通 React 页面。
 
-cd ../weRunOpenClaw
-bun install
-bun run dev
+## 运行原理
+
+BrowserClaw 不是“前端请求本机后端”的传统模式，而是把一个可运行的 OpenClaw 服务直接放进浏览器环境中启动。
+
+### 启动流程图
+
+```mermaid
+flowchart TD
+    A[开发者打开 weRunOpenClaw 页面] --> B[前端调用 WeNode.boot]
+    B --> C[浏览器内启动虚拟运行时]
+    C --> D[写入 openclaw dist/package.json/skills 等文件]
+    D --> E[写入 ~/.openclaw/openclaw.json]
+    E --> F[在虚拟环境执行 npm install --omit=dev]
+    F --> G[执行 node /workspace/openclaw/dist/index.js serve --port 3187]
+    G --> H[浏览器内 OpenClaw API 启动完成]
+    H --> I[页面通过 3187 与 agent 对话]
 ```
 
-### Preview the production build
+### 分阶段理解
+
+1. 浏览器打开 `weRunOpenClaw` 页面。
+2. 前端调用 `WeNode.boot()`，创建浏览器内虚拟运行时。
+3. 前端把 `openclaw/dist`、`openclaw/package.json`、`openclaw/skills/**`、模板文档等写入虚拟文件系统。
+4. 前端再写入运行所需配置，例如 `~/.openclaw/openclaw.json`。
+5. 虚拟运行时内部执行 `npm install --omit=dev`，安装裁剪后的运行时依赖。
+6. 随后执行 `node /workspace/openclaw/dist/index.js serve --port 3187`。
+7. UI 最终通过浏览器内的 `3187` 虚拟服务与 agent 通信。
+
+## 为什么必须先构建 `openclaw`
+
+`weRunOpenClaw` 并不是直接引用 `openclaw/src`，而是依赖它的构建产物。因此开发顺序固定为：
+
+1. 先安装 `openclaw` 依赖
+2. 执行 `openclaw` 构建
+3. 再启动或构建 `weRunOpenClaw`
+
+可以把它理解成：前端只是“搬运 + 启动” `openclaw/dist`，并不替代 `openclaw` 的编译工作。
+
+## 目录说明
+
+```text
+BrowerClaw/
+├─ Dockerfile
+├─ openclaw/         # TypeScript CLI/runtime
+└─ weRunOpenClaw/    # Browser UI + weNode runtime host
+```
+
+## 关键端口与约束
+
+- `weRunOpenClaw` 的 Vite dev server 默认端口是 `5173`
+- 浏览器内 OpenClaw API 固定使用 `3187`
+- 页面必须带 `COOP/COEP` 响应头，否则 `SharedArrayBuffer` / `weNode` 无法启动
+
+当前相关配置已在这些文件中处理：
+
+- `weRunOpenClaw/vite.config.ts`
+- `Dockerfile`
+
+## 浏览器运行时依赖策略
+
+BrowserClaw 不会在 `weNode` 中安装完整的 `openclaw` 生产依赖，而是使用一个 **browser runtime dependency profile** 裁剪运行时依赖集合。
+
+这样做的目标是：
+
+- 只保留浏览器场景真正需要的聊天、配置、技能、预览主链路
+- 避免某些服务端型或渠道型依赖继续触发额外联网安装
+- 降低首次启动失败率，缩短首启准备时间
+
+因此，一些偏服务端或渠道接入的依赖不会进入浏览器内安装集合，例如部分 WhatsApp、Slack、Telegram 相关依赖，以及其他重型服务端包。
+
+## 常用命令
+
+### `openclaw/`
 
 ```bash
-cd weRunOpenClaw
+pnpm build
+pnpm test
+pnpm lint
+pnpm openclaw agent --message "Summarize this project"
+pnpm openclaw serve --port 3187
+```
+
+### `weRunOpenClaw/`
+
+```bash
+pnpm dev
 pnpm build
 pnpm preview
+pnpm typecheck
 ```
 
-## Configuration
+## Docker 构建
 
-Use `.env`, `.env.local`, or `.env.production` inside `weRunOpenClaw/`. Only variables prefixed with `VITE_` are exposed to the frontend.
+根目录 `Dockerfile` 会完成以下事情：
 
-Example:
+1. 安装 `openclaw` 与 `weRunOpenClaw` 依赖
+2. 构建 `openclaw`
+3. 构建 `weRunOpenClaw`
+4. 用 Nginx 托管 `weRunOpenClaw/dist`
 
-```env
-VITE_OPENCLAW_GEMINI_BASE_URL=https://your-model-host.example.com/v1
-VITE_OPENCLAW_GEMINI_API_KEY=sk-your-key-here
-VITE_OPENCLAW_LAST_TOUCHED_AT=2026-04-12T00:00:00.000Z
-VITE_OPENCLAW_LAST_TOUCHED_VERSION=2026.1.0
-```
-
-Meaning:
-
-- `VITE_OPENCLAW_GEMINI_BASE_URL`: model API base URL
-- `VITE_OPENCLAW_GEMINI_API_KEY`: model API key
-- `VITE_OPENCLAW_LAST_TOUCHED_AT`: timestamp stored in the virtual OpenClaw config
-- `VITE_OPENCLAW_LAST_TOUCHED_VERSION`: version stored in the virtual OpenClaw config
-
-If these variables are missing, the app falls back to the default config generation in `weRunOpenClaw/src/ui/Terminal/weNodeBootstrap.ts`.
-
-Recommendation:
-
-- The virtual `openclaw.json` works best with an **OpenAI-compatible gateway such as NewAPI**
-- In this project, model requests are usually sent directly from the browser, and NewAPI-style gateways tend to be more reliable for browser-direct traffic and compatibility
-- Platforms such as **Volcengine** may be blocked or behave inconsistently in browser-direct scenarios due to risk controls, auth expectations, CORS policy, or request-shape restrictions
-- If you need to use Volcengine or a similar provider, it is safer to add your own stable relay or same-origin proxy in front of it instead of calling the raw endpoint directly from the browser
-
-## Docker
+示例：
 
 ```bash
-docker build -t weclaw .
-docker run --rm -p 8080:80 weclaw
+docker build \
+  --build-arg VITE_OPENCLAW_GEMINI_BASE_URL=https://your-model-host.example.com/v1 \
+  --build-arg VITE_OPENCLAW_GEMINI_API_KEY=your-key \
+  --build-arg VITE_OPENCLAW_LAST_TOUCHED_AT=2026-04-12T00:00:00.000Z \
+  --build-arg VITE_OPENCLAW_LAST_TOUCHED_VERSION=2026.1.0 \
+  -t browerclaw .
+
+docker run --rm -p 8080:80 browerclaw
 ```
 
-Browse to `http://localhost:8080`.
+访问：
 
-## FAQ
+- `http://localhost:8080`
 
-<details>
-<summary><strong>What is stored in OPFS?</strong></summary>
+## 关键源码入口
 
-This project mainly persists task records, conversations, virtual OpenClaw config, skill preferences, and task workspace files into the browser's local OPFS storage.
+- `openclaw/src/index.ts`：CLI 入口
+- `openclaw/src/agents/mini-agent.ts`：`agent/chat/serve/skills` 主实现
+- `weRunOpenClaw/src/pages/BrowserClawPage.tsx`：主页面与任务/面板编排
+- `weRunOpenClaw/src/ui/Terminal/weNodeBootstrap.ts`：浏览器内 `weNode + openclaw` 引导逻辑
+- `weRunOpenClaw/vite.config.ts`：dev server 与 COOP/COEP 配置
+- `Dockerfile`：生产构建与静态部署入口
 
-</details>
+## 常见问题
 
-<details>
-<summary><strong>Is this the full OpenClaw product?</strong></summary>
+### 为什么前端启动了，但页面里的 OpenClaw 没跑起来？
 
-No. This repo packages a reduced Mini OpenClaw runtime with a browser-hosted UI layer focused on bounded, web-delivered agent execution.
+优先检查这几项：
 
-</details>
+- 是否已经在 `openclaw/` 下执行过 `pnpm build`
+- 浏览器是否支持 `SharedArrayBuffer`
+- 当前响应头是否包含 `Cross-Origin-Opener-Policy: same-origin`
+- 当前响应头是否包含 `Cross-Origin-Embedder-Policy: credentialless`
+- 首次页面加载时，浏览器内 `npm install` 是否因为网络策略被阻断
 
-<details>
-<summary><strong>Why is a NewAPI-style gateway recommended by default?</strong></summary>
+### 为什么首次打开页面比较慢？
 
-Because the model endpoint in the virtual `openclaw.json` is typically accessed directly by the browser. For that delivery model, OpenAI-compatible gateways such as NewAPI are usually easier to make work reliably, while providers like Volcengine may reject or restrict browser-side requests due to platform controls, auth flow mismatch, or CORS behavior.
+因为首启不只是加载前端资源，还会在浏览器内完成：
 
-</details>
+- 启动 `weNode`
+- 写入虚拟文件系统
+- 安装运行时依赖
+- 启动 `openclaw serve`
 
-## Further reading
+### API Key 是否安全？
 
-- `openclaw/README.md`
+`VITE_OPENCLAW_GEMINI_API_KEY` 会被打进前端 bundle。若用于真实生产环境，建议改为服务端代理，而不是直接暴露在浏览器侧。
+
+## 当前已确认的注意点
+
+- 仓库中通常不会自带最新的 `openclaw/dist/`，开发前应主动执行一次构建
+- `weRunOpenClaw/dist/` 不能替代 `openclaw/dist/` 的作用
+- 浏览器内会执行一次依赖安装，因此网络条件会直接影响首启成功率
+- 当前实现追求的是“浏览器内最小可运行 OpenClaw”，而不是完整复刻服务端运行环境
